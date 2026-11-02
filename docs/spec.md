@@ -63,7 +63,7 @@
 | RAG    | 근거 검색 (retriever)         | 엔지니어가 질문하면 같은 설비의 매뉴얼·과거 이력에서 근거를 찾고, 고객 신고에서는 지정된 고객 수행 절차만 가져온다.               |
 | RAG    | 답변 생성·검증 (generator)    | 고객이나 엔지니어가 요청하면 단계마다 출처가 붙은 답이 나오고, 출처가 근거와 다른 답은 보여주지 않는다.                          |
 | RAG    | 고객 안내 흐름 (pipeline)     | 고객이 신고하면 매뉴얼의 고객 수행 절차만으로 셀프 가이드가 나오고, 만들 수 없으면 추측하지 않고 엔지니어에게 접수된다.           |
-| RAG    | 엔지니어 답변 흐름 (pipeline) | 엔지니어가 신고 건에서 질문하면 신고한 에러코드를 기준으로 답하고, 신고한 설비의 자료에서 근거를 찾지 못하면 조치 없이 그 사실만 알린다. |
+| RAG    | 엔지니어 답변 흐름 (pipeline) | 엔지니어가 신고 건에서 질문하면 질문이 묻는 설비(언급이 없으면 신고 설비)의 자료로 답하고, 근거를 찾지 못하면 조치 없이 그 사실만 알린다. |
 | RAG    | RAG 평가 (pipeline)           | 평가를 실행하면 엔지니어 답변과 고객 안내가 목적별로 문항마다 채점되어 환각·엉뚱한 출처·정답 적중·과잉 보류 건수와 합격 여부가 기록된다. |
 
 ### 1.3 UI 파트
@@ -87,7 +87,7 @@
 | 항목          | 결정                            |
 | ------------- | ------------------------------- |
 | 언어·화면     | Python, Gradio Blocks           |
-| LLM·임베딩    | OpenAI API, LangChain           |
+| LLM·임베딩    | OpenAI API, LangChain, LangGraph(엔지니어 답변 흐름) |
 | 벡터 DB       | Chroma(메모리)                  |
 | 관계형 DB     | MySQL(PyMySQL), SQLAlchemy Core |
 | 자료 읽기     | pdfplumber(PDF)                 |
@@ -124,7 +124,7 @@
 │   ├── rag/                           # [RAG]
 │   │   ├── retriever.py               # 근거 검색
 │   │   ├── generator.py               # 모델 호출과 답변 형식·인용 검증
-│   │   └── pipeline.py                # 고객 안내·엔지니어 답변의 단계 조립
+│   │   └── pipeline.py                # 고객 안내·엔지니어 답변의 단계 조립(엔지니어는 LangGraph 그래프)
 │   └── ui/                            # [UI]
 │       ├── common.py                  # 화면 공통 표시 처리(표기 변환·오류 문구·가상 데이터 배너)
 │       ├── customer_dashboard.py      # 고객 신고 목록
@@ -194,8 +194,9 @@
 | retriever | `fetch_code_documents(equipment: Equipment, code: str) -> list[SearchHit]` | 신고 코드의 고객용 `manual` 근거(코드 표 행과 그 절의 `엔지니어 조치 절차` 앞까지, 원인 후보 표 포함)를 유사도 검색 없이 원문 순서로 가져온다 | DependencyError |
 | generator | `set_chat_model(chat_model: BaseChatModel) -> None`                                                     | 답변 생성에 쓸 모델을 설정한다            | —                                |
 | generator | `generate_customer_guidance(context: CaseContext, hits: list[SearchHit]) -> Answer`                     | 고객 안내 답변을 생성한다                 | DependencyError                  |
-| generator | `generate_engineer_answer(context: CaseContext, hits: list[SearchHit], request: ChatRequest, cross_equipment: bool = False) -> Answer` | 엔지니어 대화 답변을 생성한다(`cross_equipment`는 다른 설비 근거가 섞인 폴백일 때 `True`) | DependencyError                  |
+| generator | `generate_engineer_answer(context: CaseContext, hits: list[SearchHit], request: ChatRequest, cross_equipment: bool = False) -> Answer` | 엔지니어 대화 답변을 생성한다(`cross_equipment`는 근거가 신고 설비 자료가 아닐 때(다른 설비 라우팅·폴백) `True`) | DependencyError                  |
 | generator | `passes_check(answer: Answer, hits: list[SearchHit], equipment: Equipment, allow_other_equipment: bool = False) -> bool` | 고객 안내·엔지니어 답변의 인용을 검사한다(`allow_other_equipment`는 폴백 답변에서만 `True`) | —                                |
+| generator | `route_question(context: CaseContext, question: str) -> Equipment` | 엔지니어 질문이 묻는 설비를 모델로 판별한다(설비 이름·에러코드 규칙으로 못 정한 질문만) | DependencyError                  |
 | pipeline  | `run_customer_guidance(context: CaseContext, settings: SearchSettings) -> Answer`                       | 고객 안내 처리 흐름을 실행한다. 셀프 가이드 후보가 아닌 코드는 검색 없이 보류한다 | DependencyError |
 | pipeline  | `run_engineer_answer(context: CaseContext, request: ChatRequest, settings: SearchSettings) -> Answer`   | 엔지니어 답변 처리 흐름을 실행한다        | ValidationError, DependencyError |
 | pipeline  | `search_customer_evidence(context: CaseContext, settings: SearchSettings) -> list[SearchHit]`           | 고객 안내의 근거 조회만 실행한다(`run_customer_guidance`가 쓴다, `fetch_code_documents`). 평가가 생성 없이 같은 조회를 잰다. `settings`는 쓰지 않는다 | DependencyError |
@@ -346,7 +347,7 @@ fake/fake_service ──→ service(바꿔 끼울 대상), config, models (app�
 fake/fake_db ──→ fake/fake_service(CSV 로더·조회 도우미), db/parser, db/rdb, db/vectordb(바꿔 끼울 대상), models (fake/run만 install을 부른다)
 fake/run ──→ app, fake/fake_db, db/vectordb, rag/generator
 mpilot/* ──✗ fake/* (운영 코드는 fake를 import하지 않는다)
-rag/pipeline ──→ rag/retriever, rag/generator, models
+rag/pipeline ──→ rag/retriever, rag/generator, models, langgraph
 rag/retriever ──→ db/vectordb, models
 db/rdb ──→ db/schemas, models
 config, db/parser, db/schemas, db/vectordb, rag/generator ──→ models
@@ -361,7 +362,12 @@ scripts/evaluate ──→ app(initialize로 색인·모델 준비), rag/pipelin
 - 대화 이력은 생성 입력에서만 줄이고 저장된 이력은 지우지 않는다.
 - 원문 밖의 원인·절차를 단정하지 않고, 증상 메모는 확인된 사실과 구분한다(프롬프트 규칙).
 - 고객 안내(`customer_guidance`)는 셀프 가이드 후보 코드만 만든다(후보가 아니면 모델을 부르지 않고 보류). 근거는 신고 코드의 `manual` 절을 유사도 검색 없이 통째로 쓰되(코드 표 행과 그 코드 절 청크, 폴백 없음), `엔지니어 조치 절차` 제목부터는 빼고 원인 후보 표만 남긴다. 상위 k건만 쓰면 여러 청크에 걸친 고객 절차가 잘려 보류되고, 엔지니어 절차가 근거에 있으면 모델이 그것을 고객에게 안내하기 때문이다. 근거가 없거나 모델이 근거 부족으로 판정하면 보류(`held`)다. `history` 컬렉션은 엔지니어 대화(`engineer_chat`)에서만 검색·인용한다.
-- 대상 코드는 신고 코드로 고정하며 pipeline 입력 계약은 §2.3.2를 따른다. 4종 밖 설비·다른 설비·사전에 없는 주제·다른 코드를 묻는 질문도 먼저 신고 설비 필터로 검색한다. 보류 여부는 설비·키워드·검색 거리로 미리 거르지 않고, 검색 결과로 답할 수 있는지를 모델이 판정한다(검색 거리 임계값은 두지 않는다). 엔지니어 답변에서 모델이 신고 설비 자료로 근거 부족이라 판정하면 설비 필터 없이 4종 전체를 질문 원문으로 한 번 더 검색해 다시 생성한다(폴백). 폴백 근거로 답하면 인용의 설비가 신고 설비와 달라도 통과시키고 `Answer.notice`에 다른 설비 자료를 포함했다는 고정 문구를 담으며, 그래도 근거가 없으면 insufficient_evidence다.
+- pipeline 입력 계약은 §2.3.2를 따른다. 고객 안내의 대상 코드는 신고 코드로 고정한다. 보류 여부는 검색 거리로 미리 거르지 않고, 검색 결과로 답할 수 있는지를 모델이 판정한다(검색 거리 임계값은 두지 않는다).
+- 엔지니어 답변은 LangGraph 그래프로 라우팅 → 검색 → 생성 → 검증을 잇는다.
+  - 라우팅: 질문에 4종 설비의 이름·별칭이나 에러코드(첫 글자 M·S·A·R)가 한 설비만 나오면 그 설비가 대상이다. 여러 설비가 나오면 신고 설비, 아무것도 없으면 모델(`route_question`)이 고르고 모델이 실패하면 신고 설비다. 4종 밖 설비(컨베이어 등)는 신고 설비로 본다.
+  - 검색: 대상 설비 필터로 `manual`·`history`를 찾는다. 신고 설비면 위 1차 검색과 같다. 다른 설비면 질문 원문으로 찾고, 질문에 그 설비의 코드가 하나 있으면 `manual`을 그 코드·공통 절로 거른다. 다른 설비로 답하면 인용은 대상 설비와 일치해야 하고 `Answer.notice`에 질문한 설비 자료로 답했다는 고정 문구를 담는다.
+  - 검증: 인용 검증에 실패하면 같은 근거로 한 번 다시 생성하고, 그래도 실패하면 DependencyError다.
+  - 폴백: 모델이 근거 부족이라 판정하면 설비 필터 없이 4종 전체를 질문 원문으로 한 번 더 검색해 다시 생성한다. 폴백 근거로 답하면 인용의 설비가 달라도 통과시키고 `Answer.notice`에 다른 설비 자료를 포함했다는 고정 문구를 담으며, 그래도 근거가 없으면 insufficient_evidence다.
 - 파이프라인은 근거 확보 → 생성 → 검증 순이다. 고객 근거는 신고 코드의 `manual` 검색, 엔지니어 근거는 `manual`·`history` 검색이다. 근거 부족은 steps=[]인 Answer이며, 모델·검색 장애와 검증 실패는 DependencyError다. 저장은 service가 담당한다.
 - 출처 ID 검증은 내용의 정확성·안전성을 증명하지 않는다. 그 부분은 프롬프트 제약과 사람의 사후 평가로 나눈다. 건별 사전 승인은 없다.
 
@@ -379,12 +385,12 @@ scripts/evaluate ──→ app(initialize로 색인·모델 준비), rag/pipelin
   | 엔지니어 | `own_code` | answered | 신고 코드 자체의 질문. 신고 설비 매뉴얼의 그 코드 절(·`error:` 행) |
   | 엔지니어 | `own_common` | answered | 신고 설비 매뉴얼의 공통 본문으로 답하는 질문 |
   | 엔지니어 | `history` | answered | 같은 설비·코드의 과거 조치가 핵심인 질문. `history:` 문서만(매뉴얼 인용으로 적중하면 이력 사용을 잴 수 없다) |
-  | 엔지니어 | `other` | answered | 신고 설비 자료로는 답할 수 없고 다른 설비 자료에 근거가 있는 질문. 폴백으로 답하며 그 설비의 근거(코드 절·공통 본문) |
+  | 엔지니어 | `other` | answered | 신고 설비 자료로는 답할 수 없고 다른 설비 자료에 근거가 있는 질문. 라우팅이나 폴백으로 답하며 그 설비의 근거(코드 절·공통 본문) |
   | 엔지니어 | `none` | insufficient_evidence | 4종 어디에도 근거 없음(에러코드형·주제형을 섞는다). `[]` |
   | 고객 안내 | `guided` | answered | 셀프 가이드 후보 코드. 신고 코드 매뉴얼의 고객 수행 절차 |
   | 고객 안내 | `not_guided` | insufficient_evidence | 엔지니어 필요 코드를 고객 흐름에 직접 투입. `[]` |
 
-- 엔지니어 대화 문항: `question`은 엔지니어의 질문이며 비울 수 없다. 답변 가능(`own_code`·`own_common`·`history`·`other`)은 `gold_ref_ids`가 비어 있지 않고, 답변 불가(`none`)는 4종 어디에도 근거가 없으며 `[]`다. `other`는 신고 설비 자료만으로 답할 수 없는 질문이라 폴백이 필요하다(§2.6).
+- 엔지니어 대화 문항: `question`은 엔지니어의 질문이며 비울 수 없다. 답변 가능(`own_code`·`own_common`·`history`·`other`)은 `gold_ref_ids`가 비어 있지 않고, 답변 불가(`none`)는 4종 어디에도 근거가 없으며 `[]`다. `other`는 신고 설비 자료만으로 답할 수 없는 질문이라 라우팅이나 폴백이 필요하다(§2.6).
 - 고객 안내 문항: `question`은 신고 증상 메모이며 비워도 된다(비우면 메모 없이 실행한다).
   - `guided`: `code`는 셀프 가이드 후보(심각도 `상` 아님, 조치 구분 `고객사 조치`, §2.10)여야 한다. 고객 안내는 폴백이 없으므로 신고 설비의 신고 코드 자료만 정답이 될 수 있다(§2.6).
   - `not_guided`: 조치 구분이 엔지니어 필요인 코드(매뉴얼에 고객이 수행할 수 있는 절차가 없는 코드)를 고객 안내 흐름에 직접 넣어 만든다. 운영에서는 경로 분기가 먼저 엔지니어에게 접수하므로, 이 문항은 고객에게 엔지니어 조치를 안내하지 않는 안전 장치를 시험한다. 후보 검사를 하지 않는다. 심각도 `상`이면서 고객사 조치인 코드는 후보가 아니지만 매뉴얼에 고객 절차가 있어 시스템이 답을 만드므로 이 상태에 쓰지 않는다.
@@ -410,7 +416,7 @@ scripts/evaluate ──→ app(initialize로 색인·모델 준비), rag/pipelin
 - 검색 지표: 답변 지표만으로는 과잉 보류가 검색 탓인지 생성 탓인지 가를 수 없어, 문항의 `gold_ref_ids`로 검색 단계도 잰다. 주 지표는 Recall@k(정답 근거 중 상위 k건에 든 비율), 보조는 Hit@k(하나라도 든 문항 비율)와 MRR(첫 정답 순위의 역수 평균)이다. `manual`과 `history`는 각자 상위 k건을 따로 뽑으므로 `gold_ref_ids`를 `history:` 접두로 나눠 컬렉션별로 센다. k별 값은 그 k 후보의 평가 실행에서 운영과 같은 k로 검색한 결과로 계산한다. 합격선은 두지 않고 k 선택과 검색 구성 변경 비교에만 쓴다. 정답 근거가 있는 문항마다 운영과 같은 검색을 생성 없이 한 번 더 실행한다. 고객 안내(`guided`)는 `search_customer_evidence`, 엔지니어 `own_code`·`own_common`·`history`는 1차 검색(`search_engineer_evidence`), `other`은 폴백 검색(설비 필터 없이 질문 원문, `retriever.search`)이다. `other`의 정답은 다른 설비에 있어 1차 검색으로는 찾을 수 없기 때문이다. 쓴 검색(`first`·`fallback`)을 문항마다 기록한다. 그 컬렉션에 정답 근거가 없는 문항(예: 고객 안내의 `history`)은 집계에서 뺀다. 검색이 실패하면(`DependencyError`) 그 문항의 검색 지표 없이 답변 평가를 계속하고 `search_failed`로 센다.
 - 정답 적중 70%는 초기 목표이며 실측 결과가 아니다. 첫 실측 뒤 바꿀 수 있다. 고객 안내의 합격선은 엔지니어 대화와 같은 값으로 시작한다.
 - 기록 항목: `versions`(모델 이름, 프롬프트·문항 파일 해시), `settings`(검색 설정), `results`(문항별 목적·상태·판정·인용·폴백 안내 여부·결과 분류, 쓴 검색·검색된 문서 ID 순서·컬렉션별 Recall·Hit·역순위), `summary`(목적별 건수·합격선·합격 여부, 컬렉션별 검색 지표 평균 `retrieval`과 전체 합격 여부), `caveats`(아래 해석 주의).
-- 상태별 집계: 목적별 `summary`의 `by_state`가 상태마다 문항 수와 결과 분류 건수를 센다. 엔지니어 대화는 답한 문항 중 폴백 안내가 기대(`other`는 있음, `own_code`·`own_common`·`history`는 없음)와 어긋난 건수(`fallback_mismatch`)도 센다. 합격 조건에는 쓰지 않으며 어느 상태에서 실패하는지 가리는 데 쓴다. 폴백 안내 여부는 `Answer.notice`가 폴백 고정 문구인지로 판단한다.
+- 상태별 집계: 목적별 `summary`의 `by_state`가 상태마다 문항 수와 결과 분류 건수를 센다. 엔지니어 대화는 답한 문항 중 폴백 안내가 기대(`other`는 있음, `own_code`·`own_common`·`history`는 없음)와 어긋난 건수(`fallback_mismatch`)도 센다. 합격 조건에는 쓰지 않으며 어느 상태에서 실패하는지 가리는 데 쓴다. 폴백 안내 여부는 `Answer.notice`가 폴백이나 라우팅 고정 문구인지로 판단한다.
 
 **해석 주의 (작은 표본)**
 
@@ -583,7 +589,7 @@ erDiagram
 | `steps[].citations[].kind`    | 문자열         | `CitationKind` 값                                             |
 | `steps[].citations[].ref_id`  | 문자열         | 인용한 문서 ID(§3.4)                                          |
 | `steps[].citations[].locator` | 문자열         | 화면에 보이는 출처 표기. 매뉴얼은 쪽·절, 이력은 접수번호·코드 |
-| `notice`                      | 문자열 \| null | `answered`가 아닐 때의 한국어 안내. `answered`이면 null(폴백 답변은 다른 설비 자료 안내 문구) |
+| `notice`                      | 문자열 \| null | `answered`가 아닐 때의 한국어 안내. `answered`이면 null(다른 설비 라우팅·폴백 답변은 고정 안내 문구) |
 
 #### 모델에 두지 않는 것
 
@@ -649,7 +655,7 @@ erDiagram
 
 - ID는 `:`로 구분한다. 설비 이름의 공백(`Mini Loader`)은 그대로 쓰고, 구성 요소에 `:`가 있으면 적재 오류다. `chunk_no`는 쪽 안에서 1부터 매긴다.
 - 청킹 규칙과 청크 ID 형식(`manual:<manual_id>:<page>:<chunk_no>`)은 1주차 초에 확정하고 동결한다. 저장된 셀프 가이드의 인용이 이 ID로 원문을 다시 찾으므로 동결 뒤에는 바꾸지 않는다.
-- 검색은 신고 설비 필터가 기본이다. 필터 없는 검색은 신고 설비 자료만으로 근거가 부족할 때의 폴백뿐이다(§2.6). `history`에는 `resolutions` 행이 있는 건(시드 포함)만 넣고 `case_id`로 중복을 제거한다.
+- 검색은 설비 필터가 기본이다(엔지니어 답변은 질문이 묻는 설비, 그 밖은 신고 설비). 필터 없는 검색은 모델이 근거 부족으로 판정했을 때의 폴백뿐이다(§2.6). `history`에는 `resolutions` 행이 있는 건(시드 포함)만 넣고 `case_id`로 중복을 제거한다.
 - 이력 본문은 설비·코드·메모와 확정된 원인·조치·결과다. 자동 가이드·대화는 넣지 않는다.
 - DB(`rdb`)의 확정 이력이 정본이다. 같은 `case_id`는 upsert이고 전체 재생성은 같은 ID를 쓴다. DB와 Chroma의 원자성은 가정하지 않으며, 반영 실패는 건별로 저장하지 않고 앱 재시작의 전체 재생성으로 복구한다. 재생성은 컬렉션을 삭제하고 다시 만든다(원자 교체 없음, 실패하면 시작을 중단하고 다시 시작한다).
 - 색인 생성은 문서 ID 구성 요소에 `:`가 있거나 `manual` 문서 ID가 겹치면 실패한다.
