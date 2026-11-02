@@ -13,7 +13,7 @@
       (`expected=insufficient_evidence`, `gold_ref_ids=[]`)로 나뉜다.
     - `state`가 문항의 성격을 더 나누며 `expected`를 정한다. 엔지니어 대화는 `own_code`(신고 설비 코드 절)·
       `own_common`(신고 설비 공통 본문)·`history`(같은 설비·코드의 조치 이력, 정답은 `history:` 문서만)·`other`(다른
-      설비 자료, 폴백 안내가 붙어야 한다)·`none`(4종 어디에도 근거 없음)이고 고객 안내는 `guided`·`not_guided`다. 결과 `summary`의 `by_state`에
+      설비 자료, 폴백·라우팅 안내가 붙어야 한다)·`none`(4종 어디에도 근거 없음)이고 고객 안내는 `guided`·`not_guided`다. 결과 `summary`의 `by_state`에
       상태별 결과 분류와 폴백 안내 기대에서 어긋난 건수를 센다(합격 조건이 아니다).
     - 지표와 합격선: 환각(답변 불가 문항 중 `answered`) 1건 이하, 엉뚱한 출처(답변 가능 문항 중 `answered`인데
       인용이 정답 근거 기준에 못 미침) 1건 이하, 정답 적중(답변 가능 문항 중 `answered`이고 인용이 정답 근거
@@ -482,10 +482,9 @@ def run_eval(questions_path: Path, output_dir: Path) -> dict[str, object]:
             error = str(e)
         outcome = _classify(question, answer)
         outcomes.append(outcome)
-        # 다른 설비 자료로 답했다는 고정 안내가 붙었는지(폴백). 답하지 않았으면 판단하지 않는다.
-        fallback_used = (
-            answer.notice == pipeline.CROSS_EQUIPMENT_NOTICE if answer and answer.verdict == Verdict.ANSWERED else None
-        )
+        # 다른 설비 자료로 답했다는 고정 안내가 붙었는지(폴백·라우팅). 답하지 않았으면 판단하지 않는다.
+        other_notices = (pipeline.CROSS_EQUIPMENT_NOTICE, pipeline.ROUTED_EQUIPMENT_NOTICE)
+        fallback_used = answer.notice in other_notices if answer and answer.verdict == Verdict.ANSWERED else None
         fallbacks.append(fallback_used)
         results.append(
             {

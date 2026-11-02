@@ -354,10 +354,12 @@ def test_상태별로_결과_분류를_세고_폴백_안내가_기대와_어긋�
         ("SRM", CODE, "폴백으로 답함", "answered", [GOLD], ENG, "other"),
         ("SRM", CODE, "폴백 안내 없음", "answered", [GOLD], ENG, "other"),
         ("SRM", CODE, "근거 없음", "insufficient_evidence", [], ENG, "none"),
+        ("SRM", CODE, "라우팅으로 답함", "answered", [GOLD], ENG, "other"),
     ]
+    routed = answered(GOLD).model_copy(update={"notice": evaluate.pipeline.ROUTED_EQUIPMENT_NOTICE})
     behavior.update(
         {"신고 설비로 답함": answered(GOLD), "불필요한 폴백": fallback, "폴백으로 답함": fallback,
-         "폴백 안내 없음": answered(GOLD), "근거 없음": held()}
+         "폴백 안내 없음": answered(GOLD), "근거 없음": held(), "라우팅으로 답함": routed}
     )
 
     result = run(tmp_path, rows)
@@ -368,7 +370,7 @@ def test_상태별로_결과_분류를_세고_폴백_안내가_기대와_어긋�
     assert by_state["own_common"]["fallback_mismatch"] == 1  # 신고 설비 자료로 답해야 하는데 폴백을 썼다
     assert by_state["other"]["fallback_mismatch"] == 1  # 다른 설비 자료로 답했는데 안내가 없다
     assert by_state["none"] == {"questions": 1, "outcomes": {"correct_hold": 1}, "fallback_mismatch": None}
-    assert [r["fallback_used"] for r in result["results"]] == [False, True, True, False, None]
+    assert [r["fallback_used"] for r in result["results"]] == [False, True, True, False, None, True]
     assert [r["state"] for r in result["results"]][:2] == ["own_code", "own_common"]
 
 
