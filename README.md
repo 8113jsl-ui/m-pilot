@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="images/logo.png" alt="MOVEBRAIN logo" width="220">
+  <img src="images/logo.png" alt="MOVEBRAIN 로고" width="220">
 </p>
 
 <h1 align="center">M-Pilot</h1>
 
 <p align="center">
-  <b>Evidence-grounded RAG assistant for industrial equipment failures</b><br>
-  Data layer · Jaeseo Lee (<a href="https://github.com/8113jsl-ui">@8113jsl-ui</a>)
+  <b>근거 기반 설비 장애 대응 RAG 서비스</b><br>
+  데이터 레이어 · 이재서 (<a href="https://github.com/8113jsl-ui">@8113jsl-ui</a>)
 </p>
 
 <p align="center">
-  English · <a href="README.ko.md">한국어</a>
+  한국어 · <a href="README.en.md">English</a>
 </p>
 
 <p align="center">
@@ -22,192 +22,204 @@
   <img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC?logo=pytest&logoColor=white">
 </p>
 
-> Personal portfolio fork of [movebrain/m-pilot](https://github.com/movebrain/m-pilot). All manuals, error codes, and service records in this repo are synthetic.
+> 원본 팀 저장소 [movebrain/m-pilot](https://github.com/movebrain/m-pilot)의 개인 포트폴리오용 포크. 저장소 내 매뉴얼·에러코드·서비스 이력은 모두 가상 데이터.
 
-## TL;DR
+## 요약
 
-M-Pilot takes a customer's equipment error report and routes it to either a self-service guide or an engineer. Engineers get answers grounded in equipment manuals and past confirmed fixes, with a citation on every step. When there is no evidence, the system says so instead of guessing.
+설비 에러코드 신고를 셀프 가이드 또는 엔지니어 접수로 분기하고, 엔지니어 질문에는 매뉴얼·과거 확정 조치 근거와 출처를 붙여 답변하는 서비스. 근거가 없으면 답변 대신 근거 없음 안내.
 
-I owned a core slice of the **data layer**: turning manual PDF tables into citable chunks, persisting engineer conversations and fixes safely under concurrency, and keeping the vector index in sync so every confirmed fix becomes evidence for the next answer.
+**데이터 레이어** 핵심 기능 담당: 매뉴얼 PDF 표의 출처 있는 청크 변환, 동시 처리에 안전한 대화·조치 이력 저장, 확정 조치의 즉시 검색 색인 반영.
 
 | | |
 |---|---|
-| **Timeline** | Oct 21 – Nov 2, 2026 (2 weeks, Hyundai AI Campus bootcamp) |
-| **Team** | 7 engineers: 1 UI & lead, 3 data, 3 RAG |
-| **My role** | Data layer engineer |
-| **Contributions** | 23 commits · 7 merged PRs · 5 test modules |
-| **Stack** | Python 3.12, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **기간** | 2026.10.21 ~ 2026.11.02 (2주, 현대AI캠퍼스 1차 프로젝트) |
+| **인원** | 7명 (UI·총괄 1, 데이터 3, RAG 3) |
+| **역할** | 데이터 레이어 개발 |
+| **기여** | 커밋 23건 · PR 7건 머지 · 테스트 모듈 5건 |
+| **기술** | Python 3.12, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
 
-## Highlights
+## 핵심 성과
 
-- **Built a table extraction pipeline** for equipment manual PDFs that keeps row and column structure, stitches tables split across pages, and cites printed page numbers, so every answer links to the page a technician would actually open.
-- **Designed race-safe persistence** for chat turns and fix records with row locks and conditional updates. A case can't be closed twice or written to after it's closed.
-- **Closed the feedback loop** between engineers and the retriever. A confirmed fix is indexed immediately and can ground the very next answer.
-- **Made index rebuilds fail-safe.** Every document is built and validated before the old index is touched, so bad source data never wipes a working index.
-- **Split a monolithic `rdb.py`** into a feature-based package without changing a single call site in other teams' code.
+- **매뉴얼 PDF 표 추출 파이프라인 개발**: 행·열 구조 유지, 쪽 넘김 표 자동 연결, 인쇄 쪽 번호 기준 출처 표기로 답변 출처와 실제 매뉴얼 쪽 일치
+- **동시 처리 안전한 이력 저장 설계**: 행 잠금·조건부 UPDATE로 중복 완료 및 완료 후 저장 차단
+- **조치 결과 피드백 루프 구현**: 엔지니어가 확정한 조치를 즉시 색인에 반영, 다음 답변 근거로 활용
+- **색인 재생성 안정성 확보**: 신규 문서 전체 검증 후 기존 색인 교체, 원자료 오류 시 기존 색인 보존
+- **RDB 모듈 구조 개선**: 단일 `rdb.py`를 기능별 패키지로 분리, 타 파트 호출 코드 변경 없음
 
-## Architecture
+## 아키텍처
 
-Highlighted boxes are the parts I built.
+노란색 박스: 담당 영역
 
 ```mermaid
 flowchart LR
-    PDF["Manual PDFs<br/>(4 equipment types)"] --> T["Table extraction<br/>& chunking"]
-    PDF --> X["Text chunking"]
-    T --> IDX["Vector index rebuild"]
+    PDF["매뉴얼 PDF<br/>(설비 4종)"] --> T["표 추출·청킹"]
+    PDF --> X["텍스트 청킹"]
+    T --> IDX["검색 색인 생성"]
     X --> IDX
-    CODE["Error codes &<br/>seed history"] --> IDX
-    IDX --> RAG["RAG retrieval<br/>& answer"]
-    RAG --> CHAT["Chat turn<br/>persistence"]
-    CHAT --> RES["Fix confirmation"]
-    RES --> HIS["Incremental<br/>history indexing"]
-    HIS -.->|"evidence for<br/>next answer"| RAG
+    CODE["에러코드·<br/>시드 이력"] --> IDX
+    IDX --> RAG["RAG 검색·답변"]
+    RAG --> CHAT["대화 이력 저장"]
+    CHAT --> RES["조치 결과 확정"]
+    RES --> HIS["신규 이력<br/>색인 반영"]
+    HIS -.->|"다음 답변<br/>근거로 활용"| RAG
 
     classDef mine fill:#FFE066,stroke:#B8860B,stroke-width:3px,color:#000;
     class T,IDX,CHAT,RES,HIS mine;
 ```
 
-## Engineering Deep Dives
+## 주요 구현
 
-### 1. Making manual tables citable
+### 1. 매뉴얼 표 출처화
 
-[`mpilot/db/parser/tables.py`](mpilot/db/parser/tables.py) · PRs [#57](https://github.com/movebrain/m-pilot/pull/57), [#103](https://github.com/movebrain/m-pilot/pull/103)
+[`mpilot/db/parser/tables.py`](mpilot/db/parser/tables.py) · PR [#57](https://github.com/movebrain/m-pilot/pull/57), [#103](https://github.com/movebrain/m-pilot/pull/103)
 
-**Problem.** Most actionable information in equipment manuals (error codes, inspection steps, specs) lives in tables. Plain text extraction flattens rows and columns, so retrieval returns fragments with no context. PDF page indices also don't match the page numbers printed on the manual.
+**문제**
+- 에러코드·점검 절차·사양 등 핵심 정보 대부분이 표 형태
+- 일반 텍스트 추출 시 행·열이 섞여 맥락 없는 조각 검색
+- PDF 순번과 매뉴얼 인쇄 쪽 번호 불일치
 
-**Approach.**
-- Extract tables page by page with pdfplumber and attach a caption and bounding box to each.
-- Read the printed page number from the footer instead of using the PDF index.
-- Detect continuation tables (no caption, same header row as the last table on the previous page) and carry the caption over.
-- Flag merged, blank, and short-row cells for quality checks.
-- Render each table as Markdown. Split long tables by row and repeat the caption and header row on every chunk.
+**해결**
+- pdfplumber 기반 쪽별 표 추출, 캡션·위치(bbox) 부여
+- 꼬리글 인쇄 쪽 번호 사용
+- 캡션 없이 앞 쪽 마지막 표와 머리글이 같은 표를 이어진 표로 판단, 캡션 승계
+- 병합 셀·빈 셀·누락 칸 검출
+- 마크다운 표 변환, 긴 표는 행 단위 분할 후 조각마다 캡션·머리글 재부착
 
-**Outcome.** Every table chunk is self-describing when retrieved on its own, and citations point to the page a technician actually sees.
+**결과**
+- 표 조각 단독 검색 시에도 표 맥락 유지
+- 답변 출처가 실제 매뉴얼 쪽과 일치
 
-| Function | Responsibility |
+| 함수 | 기능 |
 |---|---|
-| `_extract_tables` | Per-page extraction, cross-page table stitching |
-| `_validate_table` | Locate blank or merged cells |
-| `_table_to_drafts` | Markdown chunks with header repeated on split |
+| `_extract_tables` | 쪽별 표 추출, 쪽 넘김 표 연결 |
+| `_validate_table` | 빈 셀·병합 셀 좌표 검출 |
+| `_table_to_drafts` | 마크다운 청크 생성, 분할 시 머리글 반복 |
 
-I also implemented an image-page OCR path ([`ocr.py`](mpilot/db/parser/ocr.py)) and parked it after review, since the current manuals have no image-only pages. Steps to re-enable it are documented in the module.
+이미지 페이지 OCR 경로([`ocr.py`](mpilot/db/parser/ocr.py))도 구현 후 리뷰 합의로 보류 (현재 매뉴얼에 이미지 페이지 없음, 재활성화 절차 모듈 내 문서화).
 
-### 2. Race-safe conversation and fix persistence
+### 2. 동시 처리 안전한 대화·조치 이력 저장
 
 [`mpilot/db/rdb/chat.py`](mpilot/db/rdb/chat.py) · PR [#98](https://github.com/movebrain/m-pilot/pull/98)
 
-**Problem.** Two engineers, or one double click, can act on the same case at once. A case must never be completed twice, and closed cases or self-guide cases that haven't been escalated must not accept new turns.
+**문제**
+- 엔지니어 2명 동시 작업 또는 중복 클릭 시 같은 건에 대한 동시 처리 발생
+- 동일 건 중복 완료, 완료 건·이관 전 셀프 가이드 건에 대한 저장 차단 필요
 
-**Approach.**
-- Lock the case row with `SELECT ... FOR UPDATE` before checking its state.
-- Write the fix record and flip the status to `completed` in a single transaction.
-- Guard completion with a conditional `UPDATE` that only matches cases not yet completed.
-- Auto-advance `received` to `in_progress` on the first engineer question.
-- Validate input length (questions 1–2,000 chars, each fix field 1–5,000 chars) and raise typed errors (`ValidationError`, `NotFoundError`, `InvalidStateError`, `DependencyError`) that the UI maps to fixed user-facing messages.
+**해결**
+- `SELECT ... FOR UPDATE`로 신고 행 잠금 후 상태 확인
+- 조치 기록 저장과 `completed` 전환을 단일 트랜잭션으로 처리
+- 미완료 건에만 적용되는 조건부 `UPDATE`로 완료 처리 보호
+- 첫 질문 저장 시 `received` → `in_progress` 자동 전환
+- 입력 길이 검증 (질문 1~2,000자, 조치 항목별 1~5,000자), 오류 유형별 예외 분리 (`ValidationError`, `NotFoundError`, `InvalidStateError`, `DependencyError`)
 
-**Outcome.** State transitions are enforced by the database, which keeps the UI and service layers simple.
+**결과**
+- 상태 전환 규칙을 DB 단에서 보장, UI·서비스 계층 단순화
 
-| Function | Responsibility |
+| 함수 | 기능 |
 |---|---|
-| `fetch_chat_turns` | Load a case's conversation in order |
-| `save_chat_turn` | Persist a question and cited answer, advance status |
-| `save_confirmed_resolution` | Persist the fix and close the case atomically |
+| `fetch_chat_turns` | 신고 건별 대화 이력 조회 |
+| `save_chat_turn` | 질문·출처 포함 답변 저장, 상태 전환 |
+| `save_confirmed_resolution` | 조치 결과 저장 및 완료 확정 |
 
-### 3. A vector index that learns from confirmed fixes
+### 3. 확정 조치 기반 검색 색인
 
-[`mpilot/db/vectordb.py`](mpilot/db/vectordb.py) · PRs [#56](https://github.com/movebrain/m-pilot/pull/56), [#133](https://github.com/movebrain/m-pilot/pull/133)
+[`mpilot/db/vectordb.py`](mpilot/db/vectordb.py) · PR [#56](https://github.com/movebrain/m-pilot/pull/56), [#133](https://github.com/movebrain/m-pilot/pull/133)
 
-**Problem.** Retrieval needs both manuals and real field fixes, and a fix confirmed a minute ago should be usable right away without restarting the app.
+**문제**
+- 매뉴얼과 실제 현장 조치 이력을 함께 검색해야 함
+- 방금 확정된 조치도 앱 재시작 없이 바로 활용 필요
 
-**Approach.**
-- Rebuild two Chroma collections on startup: `manual` (error-code rows and manual chunks) and `history` (confirmed fixes).
-- Upsert a single fix into `history` the moment an engineer confirms it.
-- Enforce document ID rules: `error:` / `manual:` / `history:` prefixes, no `:` inside ID parts, no duplicates.
-- Build and validate every document first, and only then reset the collections.
-- Reject unconfirmed and self-guide cases from the history index.
+**해결**
+- 앱 시작 시 Chroma 컬렉션 2개 재생성: `manual`(에러코드 행·매뉴얼 청크), `history`(확정 조치)
+- 조치 확정 즉시 해당 건 `history`에 upsert
+- 문서 ID 규칙 검증: `error:`·`manual:`·`history:` 접두어, ID 구성 요소 내 `:` 금지, 중복 금지
+- 전체 문서 생성·검증 후에만 기존 컬렉션 초기화
+- 미확정 건·셀프 가이드 건 이력 등록 차단
 
-**Outcome.** The assistant gets better as engineers close cases, and a bad data load fails loudly instead of leaving an empty index behind.
+**결과**
+- 조치 완료 건이 쌓일수록 답변 근거 확대
+- 잘못된 원자료 적재 시 빈 색인 대신 명확한 오류로 중단
 
-| Function | Responsibility |
+| 함수 | 기능 |
 |---|---|
-| `rebuild_search_index` | Validate-then-rebuild both collections |
-| `index_history` | Upsert one confirmed fix |
+| `rebuild_search_index` | 검증 후 두 컬렉션 재생성 |
+| `index_history` | 확정 조치 1건 upsert |
 
-### 4. Refactoring without breaking teammates
+### 4. RDB 모듈 구조 개선
 
 [`mpilot/db/rdb/`](mpilot/db/rdb/) · PR [#152](https://github.com/movebrain/m-pilot/pull/152)
 
-- Split `rdb.py` into `setup`, `cases`, `chat`, and `_common` modules.
-- Re-exported the public API so `rdb.<function>` calls elsewhere in the codebase stayed the same.
-- Migrated the 7 RDB test modules to the new layout.
-- Co-built schema setup and the DB connection with the other two data engineers.
+- `rdb.py`를 `setup`·`cases`·`chat`·`_common` 모듈로 분리
+- 공개 함수 재노출로 기존 `rdb.<함수>` 호출 방식 유지
+- RDB 테스트 모듈 7건 신규 구조 대응
+- 스키마 생성·DB 연결 기능 공동 개발 (데이터 파트 3인)
 
-### 5. Team tooling
+### 5. 협업 환경 구성
 
 PR [#25](https://github.com/movebrain/m-pilot/pull/25)
 
-- Wrote the team's first AI coding rules (`AI_RULES.md`, since retired) and `CLAUDE.md`, which is still the team's shared rules doc.
-- Set up `.gitignore` on day one to keep secrets, vector DB files, and caches out of the repo.
+- 팀 AI 코딩 규칙 첫 버전 작성 (`AI_RULES.md`는 이후 정리되어 삭제, `CLAUDE.md`는 팀 공용 규칙 문서로 유지)
+- 프로젝트 첫날 `.gitignore` 구성 (비밀 정보·벡터DB·캐시 업로드 방지)
 
-## Testing
+## 테스트
 
-| Module | What it covers |
+| 모듈 | 검증 항목 |
 |---|---|
-| `tests/test_parser_tables_ocr.py` | Table extraction, cross-page stitching, cell validation, row-based splitting |
-| `tests/test_parser_types.py` | Shared types and bounding box ordering |
-| `tests/test_rdb_chat_resolution.py` | Chat persistence, fix confirmation, rejection of closed or non-escalated cases |
-| `tests/test_rdb_schema.py` | Table creation and reset |
-| `tests/test_vectordb_indexing.py` | Index rebuild, history upsert, old index preserved when validation fails |
-| `tests/conftest.py` | Shared MySQL fixture. CI fails instead of skipping when the test DB is unreachable, so a green build can't hide a broken DB. |
+| `tests/test_parser_tables_ocr.py` | 표 추출, 쪽 넘김 표 연결, 셀 검증, 행 단위 분할 |
+| `tests/test_parser_types.py` | 공유 타입, bbox 좌표 순서 |
+| `tests/test_rdb_chat_resolution.py` | 대화 저장, 조치 확정, 완료·이관 전 건 차단 |
+| `tests/test_rdb_schema.py` | 테이블 생성·초기화 |
+| `tests/test_vectordb_indexing.py` | 색인 재생성, 이력 upsert, 검증 실패 시 기존 색인 보존 |
+| `tests/conftest.py` | MySQL 공용 fixture, CI에서 테스트 DB 연결 실패 시 건너뛰지 않고 실패 처리 |
 
-MySQL-backed tests run in GitHub Actions against a MySQL service container.
+MySQL 테스트는 GitHub Actions의 MySQL 서비스 컨테이너에서 실행.
 
 ```bash
 pytest tests/test_parser_tables_ocr.py tests/test_rdb_chat_resolution.py tests/test_vectordb_indexing.py
 ```
 
-## Quick Start
+## 빠른 실행
 
 ```bash
 python3.12 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 
-# UI only: no MySQL or API key needed
+# 화면만 확인 (MySQL·API 키 불필요)
 python app_customer.py --fake
 ```
 
-For the full setup with MySQL and OpenAI, see [docs/RUN.md](docs/RUN.md) (Korean).
+MySQL·OpenAI 포함 전체 실행: [docs/RUN.md](docs/RUN.md)
 
-## My Pull Requests
+## 기여 PR
 
-| PR | Summary |
+| PR | 내용 |
 |---|---|
-| [#25](https://github.com/movebrain/m-pilot/pull/25) | Team AI coding rules and `.gitignore` |
-| [#56](https://github.com/movebrain/m-pilot/pull/56) | Vector index rebuild and confirmed-fix indexing |
-| [#57](https://github.com/movebrain/m-pilot/pull/57) | Shared parser types, bbox validation, printed page numbering |
-| [#98](https://github.com/movebrain/m-pilot/pull/98) | DB schema, connection, chat and fix persistence |
-| [#103](https://github.com/movebrain/m-pilot/pull/103) | Table extraction, validation, chunking; image OCR (parked) |
-| [#133](https://github.com/movebrain/m-pilot/pull/133) | Simplified index write path |
-| [#152](https://github.com/movebrain/m-pilot/pull/152) | Split `rdb.py` into a feature-based package |
+| [#25](https://github.com/movebrain/m-pilot/pull/25) | 팀 AI 코딩 규칙, `.gitignore` |
+| [#56](https://github.com/movebrain/m-pilot/pull/56) | 검색 색인 재생성, 확정 조치 색인 반영 |
+| [#57](https://github.com/movebrain/m-pilot/pull/57) | 파서 공유 타입, bbox 검증, 인쇄 쪽 번호 기준 |
+| [#98](https://github.com/movebrain/m-pilot/pull/98) | DB 스키마·연결, 대화·조치 저장 |
+| [#103](https://github.com/movebrain/m-pilot/pull/103) | 표 추출·검증·청킹, 이미지 OCR(보류) |
+| [#133](https://github.com/movebrain/m-pilot/pull/133) | 색인 저장 코드 단순화 |
+| [#152](https://github.com/movebrain/m-pilot/pull/152) | `rdb.py` 기능별 패키지 분리 |
 
-## What I Learned
+## 회고
 
-- **Retrieval quality starts at ingestion.** Printed page numbers and repeated table headers did more for answer trust than any prompt tweak could.
-- **Put invariants in the database.** Row locks and conditional updates made double submits a non-issue and kept the UI code simple.
-- **Validate before you destroy.** Anything hard to undo, like wiping an index, runs only after the replacement is fully built and checked.
-- **Readable code is a team feature.** Short inline comments and plain syntax made reviews faster for a team learning Python together.
+- **검색 품질은 수집 단계에서 결정**: 인쇄 쪽 번호, 표 머리글 반복이 프롬프트 조정보다 답변 신뢰도에 직접적인 영향
+- **불변 조건은 DB에서 보장**: 행 잠금·조건부 UPDATE로 중복 제출 문제 해소, UI 코드 단순화
+- **삭제 전 검증**: 색인 초기화처럼 되돌리기 어려운 작업은 대체 데이터 생성·검증 완료 후 실행
+- **읽기 쉬운 코드도 팀 기능**: 줄 단위 한글 주석, 단순 문법 위주 작성으로 리뷰 속도 개선
 
-## Team
+## 팀
 
-| Name | Area | GitHub |
+| 이름 | 파트 | GitHub |
 |:---:|:---:|:---:|
-| 노동균 | UI & lead | [@rohdonggyun-lab](https://github.com/rohdonggyun-lab) |
-| 김성일 | Data | [@tjddlf112015-jpg](https://github.com/tjddlf112015-jpg) |
-| 손재호 | Data | [@thswogh](https://github.com/thswogh) |
-| **이재서 (me)** | **Data** | [@8113jsl-ui](https://github.com/8113jsl-ui) |
+| 노동균 | UI·총괄 | [@rohdonggyun-lab](https://github.com/rohdonggyun-lab) |
+| 김성일 | 데이터 | [@tjddlf112015-jpg](https://github.com/tjddlf112015-jpg) |
+| 손재호 | 데이터 | [@thswogh](https://github.com/thswogh) |
+| **이재서 (본인)** | **데이터** | [@8113jsl-ui](https://github.com/8113jsl-ui) |
 | 도예진 | RAG | [@yejjini](https://github.com/yejjini) |
 | 정혜윤 | RAG | [@hyey00n](https://github.com/hyey00n) |
 | 한시온 | RAG | [@zionhann](https://github.com/zionhann) |
 
-The original team README (Korean) is preserved at [docs/TEAM_README.md](docs/TEAM_README.md).
+원본 팀 README: [docs/TEAM_README.md](docs/TEAM_README.md)
