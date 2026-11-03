@@ -124,6 +124,59 @@ flowchart LR
     class T,IDX,CHAT,RES,HIS mine;
 ```
 
+### 디렉토리 구조
+
+★ 직접 개발 · ☆ 공동 개발 · ◆ 구조 분리(#152)
+
+```text
+m-pilot/
+├── app.py                          # 앱 조립·실행 공통부
+├── app_customer.py                 # 고객 앱 진입점 (7860)
+├── app_engineer.py                 # 엔지니어 앱 진입점 (7861)
+├── mpilot/
+│   ├── config.py                   # 앱 설정 로드·검증
+│   ├── models.py                   # 업무 데이터 정의·업무 규칙
+│   ├── service.py                  # 화면과 DB·RAG 연결 (접수·질문·완료)
+│   ├── db/                         # [데이터 레이어]
+│   │   ├── parser/                 # 매뉴얼 PDF → 출처 붙은 검색 단위
+│   │   │   ├── __init__.py         # ☆ 매뉴얼 파싱 조립 (parse_manuals)
+│   │   │   ├── tables.py           # ★ 표 추출·검증·청킹
+│   │   │   ├── ocr.py              # ★ 이미지 페이지 OCR (보류)
+│   │   │   ├── types.py            # ☆ 표·텍스트 공유 타입
+│   │   │   ├── text.py             #   텍스트 추출·인쇄 쪽 번호
+│   │   │   ├── chunks.py           #   청크 번호 부여
+│   │   │   └── cache.py            #   파싱 결과 캐시
+│   │   ├── rdb/                    # ◆ 신고·대화·조치 저장 (기능별 패키지)
+│   │   │   ├── __init__.py         # ◆ 공개 함수 재노출
+│   │   │   ├── _common.py          # ◆ 엔진 보관·변환 공통 도구
+│   │   │   ├── setup.py            # ☆ DB 연결·스키마 생성, 초기 자료 적재
+│   │   │   ├── cases.py            # ◆ 신고 저장·조회
+│   │   │   └── chat.py             # ★ 대화 저장·조회, 조치 확정
+│   │   ├── schemas.py              # ☆ 관계형 DB 테이블 정의
+│   │   └── vectordb.py             # ★ 검색 색인 생성·이력 반영
+│   ├── rag/                        # 근거 검색, 답변 생성, 인용 검증
+│   └── ui/                         # 고객·엔지니어 화면
+├── fake/                           # DB 없이 실행하는 시연용 가짜 구현
+├── scripts/                        # 초기 자료 생성·적재, RAG 평가
+├── prompts/                        # 모델 지시문
+├── tests/
+│   ├── conftest.py                 # ★ MySQL 테스트 공용 fixture
+│   ├── test_parser_tables_ocr.py   # ★ 표 추출·분할
+│   ├── test_parser_types.py        # ★ 공유 타입·bbox 검증
+│   ├── test_rdb_chat_resolution.py # ★ 대화·조치 저장
+│   ├── test_rdb_schema.py          # ★ 테이블 생성·초기화
+│   ├── test_vectordb_indexing.py   # ★ 색인 재생성·이력 반영
+│   └── ...                         #   그 외 팀 테스트
+├── data/                           # 매뉴얼 PDF 4종, 에러코드·이력 원자료 (가상)
+├── docs/                           # 기획 의도·명세·실행 가이드, 팀 README
+├── images/                         # README 배너
+├── CLAUDE.md                       # ☆ 팀 AI 코딩 규칙 (첫 버전 작성)
+└── .github/workflows/              # CI (GitHub Actions)
+```
+
+- `vectordb.py`의 저장소 연결·원문 조회(`connect`, `get_store`, `get_document`)는 팀원 담당
+- 의존 방향: `app*.py` → `ui`·`service` → `db`·`rag` → `models` (단방향)
+
 ## 주요 구현
 
 ### 1. 매뉴얼 표 출처화

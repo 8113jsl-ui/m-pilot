@@ -124,6 +124,59 @@ flowchart LR
     class T,IDX,CHAT,RES,HIS mine;
 ```
 
+### Directory Structure
+
+★ built by me · ☆ co-built · ◆ restructured in #152
+
+```text
+m-pilot/
+├── app.py                          # App assembly and launch
+├── app_customer.py                 # Customer app entry (7860)
+├── app_engineer.py                 # Engineer app entry (7861)
+├── mpilot/
+│   ├── config.py                   # Settings load and validation
+│   ├── models.py                   # Domain models and business rules
+│   ├── service.py                  # Use cases linking UI to DB and RAG
+│   ├── db/                         # [Data layer]
+│   │   ├── parser/                 # Manual PDF → citable search units
+│   │   │   ├── __init__.py         # ☆ Manual parsing entry (parse_manuals)
+│   │   │   ├── tables.py           # ★ Table extraction, validation, chunking
+│   │   │   ├── ocr.py              # ★ Image-page OCR (parked)
+│   │   │   ├── types.py            # ☆ Shared table/text types
+│   │   │   ├── text.py             #   Text extraction, printed page numbers
+│   │   │   ├── chunks.py           #   Chunk numbering
+│   │   │   └── cache.py            #   Parse result cache
+│   │   ├── rdb/                    # ◆ Reports, chats, fixes (feature package)
+│   │   │   ├── __init__.py         # ◆ Public API re-exports
+│   │   │   ├── _common.py          # ◆ Engine holder and converters
+│   │   │   ├── setup.py            # ☆ DB connection, schema, seed loading
+│   │   │   ├── cases.py            # ◆ Report persistence and queries
+│   │   │   └── chat.py             # ★ Chat persistence, fix confirmation
+│   │   ├── schemas.py              # ☆ Relational table definitions
+│   │   └── vectordb.py             # ★ Index rebuild and history sync
+│   ├── rag/                        # Retrieval, generation, citation checks
+│   └── ui/                         # Customer and engineer screens
+├── fake/                           # In-memory fakes for demos without a DB
+├── scripts/                        # Seed data build/load, RAG evaluation
+├── prompts/                        # Model instructions
+├── tests/
+│   ├── conftest.py                 # ★ Shared MySQL fixture
+│   ├── test_parser_tables_ocr.py   # ★ Table extraction and splitting
+│   ├── test_parser_types.py        # ★ Shared types, bbox checks
+│   ├── test_rdb_chat_resolution.py # ★ Chat and fix persistence
+│   ├── test_rdb_schema.py          # ★ Table creation and reset
+│   ├── test_vectordb_indexing.py   # ★ Index rebuild and history sync
+│   └── ...                         #   Other team tests
+├── data/                           # 4 manual PDFs, error-code and history sources (synthetic)
+├── docs/                           # Intent, spec, run guide, team README
+├── images/                         # README banners
+├── CLAUDE.md                       # ☆ Team AI coding rules (wrote first version)
+└── .github/workflows/              # CI (GitHub Actions)
+```
+
+- In `vectordb.py`, store connection and document lookup (`connect`, `get_store`, `get_document`) were built by a teammate.
+- Dependencies flow one way: `app*.py` → `ui` / `service` → `db` / `rag` → `models`.
+
 ## Engineering Deep Dives
 
 ### 1. Making manual tables citable
