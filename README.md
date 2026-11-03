@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11.9-3776AB?logo=python&logoColor=white">
   <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white">
   <img alt="SQLAlchemy" src="https://img.shields.io/badge/SQLAlchemy-Core-D71F00?logo=sqlalchemy&logoColor=white">
   <img alt="Chroma" src="https://img.shields.io/badge/Vector%20DB-Chroma-FF6446">
@@ -36,7 +36,9 @@
 | **인원** | 7명 (UI·총괄 1, 데이터 3, RAG 3) |
 | **역할** | 데이터 레이어 개발 |
 | **기여** | 커밋 23건 · PR 7건 머지 · 테스트 모듈 5건 |
-| **기술** | Python 3.12, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **기술** | Python 3.11.9, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **LLM** | OpenAI gpt-4o-mini |
+| **임베딩** | OpenAI text-embedding-3-small |
 
 ## 핵심 성과
 
@@ -181,7 +183,7 @@ pytest tests/test_parser_tables_ocr.py tests/test_rdb_chat_resolution.py tests/t
 ## 빠른 실행
 
 ```bash
-python3.12 -m venv venv && source venv/bin/activate
+python3.11 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 

@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11.9-3776AB?logo=python&logoColor=white">
   <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white">
   <img alt="SQLAlchemy" src="https://img.shields.io/badge/SQLAlchemy-Core-D71F00?logo=sqlalchemy&logoColor=white">
   <img alt="Chroma" src="https://img.shields.io/badge/Vector%20DB-Chroma-FF6446">
@@ -36,7 +36,9 @@ I owned a core slice of the **data layer**: turning manual PDF tables into citab
 | **Team** | 7 engineers: 1 UI & lead, 3 data, 3 RAG |
 | **My role** | Data layer engineer |
 | **Contributions** | 23 commits · 7 merged PRs · 5 test modules |
-| **Stack** | Python 3.12, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **Stack** | Python 3.11.9, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **LLM** | OpenAI gpt-4o-mini |
+| **Embeddings** | OpenAI text-embedding-3-small |
 
 ## Highlights
 
@@ -169,7 +171,7 @@ pytest tests/test_parser_tables_ocr.py tests/test_rdb_chat_resolution.py tests/t
 ## Quick Start
 
 ```bash
-python3.12 -m venv venv && source venv/bin/activate
+python3.11 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 
