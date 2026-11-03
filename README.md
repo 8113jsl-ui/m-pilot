@@ -2,7 +2,9 @@
   <img src="images/logo.png" alt="MOVEBRAIN 로고" width="220">
 </p>
 
-<h1 align="center">M-Pilot</h1>
+<p align="center">
+  <img src="images/hero.svg" alt="M-Pilot: 설비가 멈춘 순간, 근거 있는 첫 대응" width="100%">
+</p>
 
 <p align="center">
   <b>근거 기반 설비 장애 대응 RAG 서비스</b><br>
@@ -15,6 +17,8 @@
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11.9-3776AB?logo=python&logoColor=white">
+  <img alt="Gradio" src="https://img.shields.io/badge/UI-Gradio-F97316">
+  <img alt="OpenAI" src="https://img.shields.io/badge/LLM-gpt--4o--mini-412991?logo=openai&logoColor=white">
   <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white">
   <img alt="SQLAlchemy" src="https://img.shields.io/badge/SQLAlchemy-Core-D71F00?logo=sqlalchemy&logoColor=white">
   <img alt="Chroma" src="https://img.shields.io/badge/Vector%20DB-Chroma-FF6446">
@@ -24,21 +28,70 @@
 
 > 원본 팀 저장소 [movebrain/m-pilot](https://github.com/movebrain/m-pilot)의 개인 포트폴리오용 포크. 저장소 내 매뉴얼·에러코드·서비스 이력은 모두 가상 데이터.
 
-## 요약
+<img src="images/h_project.svg" alt="PROJECT" width="100%">
 
-설비 에러코드 신고를 셀프 가이드 또는 엔지니어 접수로 분기하고, 엔지니어 질문에는 매뉴얼·과거 확정 조치 근거와 출처를 붙여 답변하는 서비스. 근거가 없으면 답변 대신 근거 없음 안내.
+## 프로젝트 개요
+
+### 배경
+
+- 설비 정지 시 현장에서 "무엇부터 해야 하지?"로 초기 대응 지연
+- 매뉴얼과 과거 조치 이력이 흩어져 있어 근거 확인에 시간 소요
+- 일반 LLM 답변은 그럴듯하지만 근거 없는 조치 안내 위험
+
+### 해결
+
+- 설비·에러코드 선택만으로 신고, 에러코드 표의 심각도·조치 구분으로 처리 경로 자동 분기
+- 고객이 조치 가능한 고장: 매뉴얼 근거 기반 단계별 셀프 가이드
+- 위험하거나 고객이 조치할 수 없는 고장: 엔지니어 접수, 같은 설비의 매뉴얼·확정 조치 근거로 출처가 붙은 답변 제공
+- 근거가 없으면 지어내지 않고 근거 없음만 안내
+
+### 주요 기능
+
+| 사용자 | 기능 | 내용 |
+|---|---|---|
+| 고객 | 신고 작성 | 설비·에러코드 선택, 접수번호 발급, 처리 경로 자동 분기 |
+| 고객 | 셀프 가이드 | 단계별 조치 안내와 매뉴얼 출처, [해결완료]·[기술지원접수] 선택 |
+| 고객 | 신고 목록·상세 | 상태별 조회, 엔지니어 처리 건의 조치 결과 확인 |
+| 엔지니어 | 대시보드 | 기존 서비스 이력과 신규 신고를 상태별로 조회 |
+| 엔지니어 | 장애 분석 대화 | 매뉴얼·과거 이력 근거 답변, 근거 부족 시 설비 4종 전체 재검색 |
+| 엔지니어 | 조치 결과 저장 | 원인·조치·결과 입력 후 완료, 다음 질문의 근거로 즉시 반영 |
+
+### 서비스 흐름
+
+```mermaid
+flowchart LR
+    A["고객 신고<br/>설비·에러코드 선택"] --> B{"경로 분기<br/>심각도·조치 구분"}
+    B -->|"고객사 조치"| G["셀프 가이드<br/>매뉴얼 근거 안내"]
+    B -->|"심각도 상·그 외"| S["엔지니어 접수"]
+    G -->|"해결완료"| E["조치 완료"]
+    G -->|"기술지원접수·근거 부족"| S
+    S --> C["장애 분석 대화<br/>매뉴얼·이력 근거 답변"]
+    C --> K["조치 결과 등록"]
+    K --> E
+    K -.->|"확정 이력 색인 반영"| C
+```
+
+### 프로젝트 정보
+
+| | |
+|---|---|
+| **기간** | 2026.10.21 ~ 2026.11.02 (2주, 현대AI캠퍼스 1차 프로젝트) |
+| **팀** | 무브레인(MoveBrain) 7명 (UI·총괄 1, 데이터 3, RAG 3) |
+| **대상 설비** | SRM, AGV, RTV, Mini Loader 4종 (매뉴얼·에러코드·이력 모두 가상 데이터) |
+| **앱 구성** | 고객 앱(포트 7860)·엔지니어 앱(포트 7861) 분리 |
+| **기술** | Python 3.11.9, Gradio, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **LLM** | OpenAI gpt-4o-mini |
+| **임베딩** | OpenAI text-embedding-3-small |
+
+## 내 역할
 
 **데이터 레이어** 핵심 기능 담당: 매뉴얼 PDF 표의 출처 있는 청크 변환, 동시 처리에 안전한 대화·조치 이력 저장, 확정 조치의 즉시 검색 색인 반영.
 
 | | |
 |---|---|
-| **기간** | 2026.10.21 ~ 2026.11.02 (2주, 현대AI캠퍼스 1차 프로젝트) |
-| **인원** | 7명 (UI·총괄 1, 데이터 3, RAG 3) |
-| **역할** | 데이터 레이어 개발 |
+| **역할** | 데이터 레이어 개발 (데이터 파트 3인 중 1인) |
+| **담당 영역** | 매뉴얼 표 추출·청킹, 대화·조치 이력 저장, 검색 색인 생성·갱신, RDB 구조 개선 |
 | **기여** | 커밋 23건 · PR 7건 머지 · 테스트 모듈 5건 |
-| **기술** | Python 3.11.9, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
-| **LLM** | OpenAI gpt-4o-mini |
-| **임베딩** | OpenAI text-embedding-3-small |
 
 ## 핵심 성과
 
@@ -48,9 +101,11 @@
 - **색인 재생성 안정성 확보**: 신규 문서 전체 검증 후 기존 색인 교체, 원자료 오류 시 기존 색인 보존
 - **RDB 모듈 구조 개선**: 단일 `rdb.py`를 기능별 패키지로 분리, 타 파트 호출 코드 변경 없음
 
+<img src="images/h_structure.svg" alt="시스템 구조" width="100%">
+
 ## 아키텍처
 
-노란색 박스: 담당 영역
+데이터 흐름 중 노란색 박스: 담당 영역
 
 ```mermaid
 flowchart LR
@@ -180,6 +235,8 @@ MySQL 테스트는 GitHub Actions의 MySQL 서비스 컨테이너에서 실행.
 pytest tests/test_parser_tables_ocr.py tests/test_rdb_chat_resolution.py tests/test_vectordb_indexing.py
 ```
 
+<img src="images/h_start.svg" alt="시작하기" width="100%">
+
 ## 빠른 실행
 
 ```bash
@@ -211,6 +268,8 @@ MySQL·OpenAI 포함 전체 실행: [docs/RUN.md](docs/RUN.md)
 - **불변 조건은 DB에서 보장**: 행 잠금·조건부 UPDATE로 중복 제출 문제 해소, UI 코드 단순화
 - **삭제 전 검증**: 색인 초기화처럼 되돌리기 어려운 작업은 대체 데이터 생성·검증 완료 후 실행
 - **읽기 쉬운 코드도 팀 기능**: 줄 단위 한글 주석, 단순 문법 위주 작성으로 리뷰 속도 개선
+
+<img src="images/h_members.svg" alt="MEMBERS" width="100%">
 
 ## 팀
 

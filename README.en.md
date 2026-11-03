@@ -2,7 +2,9 @@
   <img src="images/logo.png" alt="MOVEBRAIN logo" width="220">
 </p>
 
-<h1 align="center">M-Pilot</h1>
+<p align="center">
+  <img src="images/hero.svg" alt="M-Pilot: evidence-first response when equipment stops" width="100%">
+</p>
 
 <p align="center">
   <b>Evidence-grounded RAG assistant for industrial equipment failures</b><br>
@@ -15,6 +17,8 @@
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11.9-3776AB?logo=python&logoColor=white">
+  <img alt="Gradio" src="https://img.shields.io/badge/UI-Gradio-F97316">
+  <img alt="OpenAI" src="https://img.shields.io/badge/LLM-gpt--4o--mini-412991?logo=openai&logoColor=white">
   <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white">
   <img alt="SQLAlchemy" src="https://img.shields.io/badge/SQLAlchemy-Core-D71F00?logo=sqlalchemy&logoColor=white">
   <img alt="Chroma" src="https://img.shields.io/badge/Vector%20DB-Chroma-FF6446">
@@ -24,21 +28,70 @@
 
 > Personal portfolio fork of [movebrain/m-pilot](https://github.com/movebrain/m-pilot). All manuals, error codes, and service records in this repo are synthetic.
 
-## TL;DR
+<img src="images/h_project.svg" alt="PROJECT" width="100%">
 
-M-Pilot takes a customer's equipment error report and routes it to either a self-service guide or an engineer. Engineers get answers grounded in equipment manuals and past confirmed fixes, with a citation on every step. When there is no evidence, the system says so instead of guessing.
+## Project Overview
+
+### Background
+
+- When equipment stops, field teams lose time figuring out what to do first.
+- Manuals and past fix records are scattered, so checking evidence is slow.
+- A general-purpose LLM sounds convincing but can suggest fixes with no basis.
+
+### Solution
+
+- Customers report by picking the equipment and error code. The error-code table's severity and action type decide the route automatically.
+- Faults the customer can handle get a step-by-step self-service guide grounded in the manual.
+- Dangerous or non-customer faults go to an engineer, who gets answers cited from the same equipment's manual and confirmed past fixes.
+- With no evidence, the system says so instead of making something up.
+
+### Key Features
+
+| User | Feature | Description |
+|---|---|---|
+| Customer | Report | Pick equipment and error code, get a ticket number, auto-routed |
+| Customer | Self-service guide | Step-by-step fix with manual citations, then "Resolved" or "Request support" |
+| Customer | Report list & detail | Filter by status, view the engineer's fix once completed |
+| Engineer | Dashboard | Past service history and new reports by status |
+| Engineer | Diagnosis chat | Answers grounded in manuals and past fixes; falls back to all 4 equipment types when evidence is thin |
+| Engineer | Fix record | Enter cause, action, and result to close the case; indexed as evidence immediately |
+
+### Service Flow
+
+```mermaid
+flowchart LR
+    A["Customer report<br/>equipment + error code"] --> B{"Routing<br/>severity + action type"}
+    B -->|"customer-fixable"| G["Self-service guide<br/>manual-grounded"]
+    B -->|"high severity / other"| S["Engineer queue"]
+    G -->|"Resolved"| E["Completed"]
+    G -->|"Request support /<br/>not enough evidence"| S
+    S --> C["Diagnosis chat<br/>manual + history evidence"]
+    C --> K["Fix recorded"]
+    K --> E
+    K -.->|"indexed as evidence"| C
+```
+
+### Project Info
+
+| | |
+|---|---|
+| **Timeline** | Oct 21 – Nov 2, 2026 (2 weeks, Hyundai AI Campus bootcamp) |
+| **Team** | MoveBrain, 7 engineers: 1 UI & lead, 3 data, 3 RAG |
+| **Equipment** | SRM, AGV, RTV, Mini Loader (all manuals, error codes, and records are synthetic) |
+| **Apps** | Separate customer app (port 7860) and engineer app (port 7861) |
+| **Stack** | Python 3.11.9, Gradio, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
+| **LLM** | OpenAI gpt-4o-mini |
+| **Embeddings** | OpenAI text-embedding-3-small |
+
+## My Role
 
 I owned a core slice of the **data layer**: turning manual PDF tables into citable chunks, persisting engineer conversations and fixes safely under concurrency, and keeping the vector index in sync so every confirmed fix becomes evidence for the next answer.
 
 | | |
 |---|---|
-| **Timeline** | Oct 21 – Nov 2, 2026 (2 weeks, Hyundai AI Campus bootcamp) |
-| **Team** | 7 engineers: 1 UI & lead, 3 data, 3 RAG |
-| **My role** | Data layer engineer |
+| **Role** | Data layer engineer (1 of 3 on the data team) |
+| **Ownership** | Table extraction & chunking, chat and fix persistence, vector index build & sync, RDB refactor |
 | **Contributions** | 23 commits · 7 merged PRs · 5 test modules |
-| **Stack** | Python 3.11.9, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest, GitHub Actions |
-| **LLM** | OpenAI gpt-4o-mini |
-| **Embeddings** | OpenAI text-embedding-3-small |
 
 ## Highlights
 
@@ -48,9 +101,11 @@ I owned a core slice of the **data layer**: turning manual PDF tables into citab
 - **Made index rebuilds fail-safe.** Every document is built and validated before the old index is touched, so bad source data never wipes a working index.
 - **Split a monolithic `rdb.py`** into a feature-based package without changing a single call site in other teams' code.
 
+<img src="images/h_structure.svg" alt="ARCHITECTURE" width="100%">
+
 ## Architecture
 
-Highlighted boxes are the parts I built.
+Data flow. Highlighted boxes are the parts I built.
 
 ```mermaid
 flowchart LR
@@ -168,6 +223,8 @@ MySQL-backed tests run in GitHub Actions against a MySQL service container.
 pytest tests/test_parser_tables_ocr.py tests/test_rdb_chat_resolution.py tests/test_vectordb_indexing.py
 ```
 
+<img src="images/h_start.svg" alt="GETTING STARTED" width="100%">
+
 ## Quick Start
 
 ```bash
@@ -199,6 +256,8 @@ For the full setup with MySQL and OpenAI, see [docs/RUN.md](docs/RUN.md) (Korean
 - **Put invariants in the database.** Row locks and conditional updates made double submits a non-issue and kept the UI code simple.
 - **Validate before you destroy.** Anything hard to undo, like wiping an index, runs only after the replacement is fully built and checked.
 - **Readable code is a team feature.** Short inline comments and plain syntax made reviews faster for a team learning Python together.
+
+<img src="images/h_members.svg" alt="MEMBERS" width="100%">
 
 ## Team
 
