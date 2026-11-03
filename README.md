@@ -2,12 +2,10 @@
   <img src="images/logo.png" alt="MOVEBRAIN 로고" width="240">
 </p>
 
-<h1 align="center">M-Pilot · 이재서 포트폴리오</h1>
+<h1 align="center">M-Pilot</h1>
 
 <p align="center">
-  설비 장애 대응 RAG 서비스 <b>M-Pilot</b>에서 <b>DB 파트</b>를 맡았습니다.<br>
-  매뉴얼 PDF의 <b>표를 검색 가능한 근거로 바꾸고</b>, 엔지니어의 <b>대화·조치 기록을 안전하게 저장</b>하고,<br>
-  그 기록이 <b>다음 답변의 근거가 되도록 검색 색인</b>에 반영하는 부분을 만들었습니다.
+  설비 장애 대응 RAG 서비스 · DB 파트 이재서
 </p>
 
 <p align="center">
@@ -18,146 +16,162 @@
   <img alt="pytest" src="https://img.shields.io/badge/test-pytest-002C5F?logo=pytest&logoColor=white">
 </p>
 
-> 원본 팀 저장소는 [movebrain/m-pilot](https://github.com/movebrain/m-pilot)이며, 이 저장소는 개인 포트폴리오용 포크입니다.
-> 저장소의 모든 데이터(매뉴얼, 에러코드, 서비스 이력)는 **가상**입니다.
+> 원본 팀 저장소: [movebrain/m-pilot](https://github.com/movebrain/m-pilot) (개인 포트폴리오용 포크)
+> 저장소 내 매뉴얼·에러코드·서비스 이력은 모두 가상 데이터
 
----
-
-## 한눈에 보기
+## 프로젝트 개요
 
 | 항목 | 내용 |
 |---|---|
-| 프로젝트 | M-Pilot: 고객이 설비 에러코드로 신고하면 셀프 가이드 또는 엔지니어 접수로 나누고, 엔지니어에게는 매뉴얼·과거 조치 근거가 붙은 답을 주는 RAG 서비스 |
-| 기간 | 2026.10.20 ~ 2026.11.02 (부트캠프 팀 프로젝트) |
-| 팀 | 7명 (UI·총괄 1, **DB 3**, RAG 3) |
-| 내 역할 | **DB 파트**: 매뉴얼 표 추출·청킹, 대화·조치 저장, 검색 색인 생성·이력 반영, 팀 AI 규칙 문서 |
-| 기여 | 커밋 23개, 직접 작성한 PR 7개 머지 (#25 #56 #57 #98 #103 #133 #152), 테스트 파일 5개 + 공용 `conftest.py` |
-| 기술 | Python 3.12, pdfplumber, MySQL + SQLAlchemy(PyMySQL), Chroma, LangChain, pytest |
+| 프로젝트 | 설비 에러코드 신고 접수, 셀프 가이드·엔지니어 접수 분기, 매뉴얼·과거 조치 근거 기반 답변 제공 |
+| 기간 | 2026.10.21 ~ 2026.11.02 (현대AI캠퍼스 1차 프로젝트) |
+| 인원 | 7명 (UI·총괄 1, DB 3, RAG 3) |
+| 담당 | DB 파트: 매뉴얼 표 추출·청킹, 대화·조치 이력 저장, 검색 색인 생성·갱신 |
+| 기여 | 커밋 23건, PR 7건 머지, 테스트 파일 5건 + 공용 fixture |
+| 기술 | Python 3.12, pdfplumber, MySQL, SQLAlchemy, Chroma, LangChain, pytest |
 
----
+## 담당 업무
 
-## 내가 만든 것
+| 구분 | 업무 | 관련 PR |
+|---|---|---|
+| 데이터 수집 | 매뉴얼 PDF 표 추출·검증·청킹 기능 개발 | [#57](https://github.com/movebrain/m-pilot/pull/57) [#103](https://github.com/movebrain/m-pilot/pull/103) |
+| 데이터 저장 | 엔지니어 대화·조치 이력 저장 기능 개발 | [#98](https://github.com/movebrain/m-pilot/pull/98) |
+| 검색 | 벡터 검색 색인 생성 및 신규 이력 반영 기능 개발 | [#56](https://github.com/movebrain/m-pilot/pull/56) [#133](https://github.com/movebrain/m-pilot/pull/133) |
+| 구조 개선 | RDB 모듈 기능별 패키지 분리 | [#152](https://github.com/movebrain/m-pilot/pull/152) |
+| 협업 환경 | 팀 AI 코딩 규칙 문서 작성, `.gitignore` 구성 | [#25](https://github.com/movebrain/m-pilot/pull/25) |
 
-전체 데이터 흐름에서 **노란 칸**이 제가 맡은 부분입니다.
+### 데이터 흐름 (노란색: 담당 영역)
 
 ```mermaid
 flowchart LR
-    PDF["매뉴얼 PDF 4종"] --> T["표 추출·검증·청킹<br/>parser/tables.py"]
-    PDF --> X["텍스트 청킹<br/>(팀원)"]
-    T --> IDX["검색 색인 재생성<br/>vectordb.rebuild_search_index"]
+    PDF["매뉴얼 PDF 4종"] --> T["표 추출·청킹"]
+    PDF --> X["텍스트 청킹"]
+    T --> IDX["검색 색인 생성"]
     X --> IDX
-    CODE["에러코드 표·시드 이력<br/>(팀원)"] --> IDX
-    IDX --> RAG["RAG 검색·답변<br/>(RAG 파트)"]
-    RAG --> CHAT["대화 저장·조회<br/>rdb/chat.py"]
-    CHAT --> RES["조치 확정 저장<br/>save_confirmed_resolution"]
-    RES --> HIS["확정 이력 색인 반영<br/>vectordb.index_history"]
-    HIS -.->|"다음 질문의 근거"| RAG
+    CODE["에러코드·시드 이력"] --> IDX
+    IDX --> RAG["RAG 검색·답변"]
+    RAG --> CHAT["대화 이력 저장"]
+    CHAT --> RES["조치 결과 확정"]
+    RES --> HIS["신규 이력 색인 반영"]
+    HIS -.->|"다음 답변 근거로 활용"| RAG
 
     classDef mine fill:#FFE066,stroke:#B8860B,stroke-width:3px,color:#000;
     class T,IDX,CHAT,RES,HIS mine;
 ```
 
-### 1. 매뉴얼 표를 검색 가능한 근거로 — `mpilot/db/parser/tables.py`
+## 주요 구현 내용
 
-설비 매뉴얼의 핵심 정보(에러코드, 점검 항목, 규격)는 대부분 **표** 안에 있습니다. 표를 일반 텍스트처럼 읽으면 행과 열이 섞여 RAG가 엉뚱한 근거를 가져옵니다. 그래서 표만 따로 뽑아 구조를 지킨 채 청크로 만들었습니다.
+### 1. 매뉴얼 표 추출·청킹 기능 개발
 
-| 함수 | 하는 일 |
+`mpilot/db/parser/tables.py`
+
+- pdfplumber 기반 쪽별 표 추출, 캡션·위치(bbox) 정보 부여
+- PDF 순번 대신 꼬리글 인쇄 쪽 번호 사용 → 답변 출처와 실제 매뉴얼 쪽 일치
+- 여러 쪽에 걸친 표 자동 연결 (머리글 비교 후 앞 표 캡션 승계)
+- 병합 셀·빈 셀·누락 칸 검출 기능 구현
+- 긴 표 행 단위 분할, 분할 조각마다 캡션·머리글 재부착 → 조각 단독 검색 시에도 표 맥락 유지
+- 이미지 페이지 OCR 경로 구현 후 보류 (현재 매뉴얼에 이미지 페이지 없음, 재활성화 절차 문서화)
+
+| 함수 | 기능 |
 |---|---|
-| [`_extract_tables`](mpilot/db/parser/tables.py) | pdfplumber로 쪽마다 표를 행·열 구조로 뽑고 캡션과 위치(bbox)를 붙입니다. 쪽 번호는 PDF 순번이 아니라 **꼬리글에 인쇄된 쪽 번호**를 써서, 답변의 출처가 사람이 보는 매뉴얼 쪽과 일치합니다. |
-| (쪽 넘김 표 처리) | 다음 쪽 맨 위 표가 캡션 없이 **앞 표와 같은 머리글**로 시작하면 이어진 표로 보고 앞 표의 캡션을 이어받습니다. |
-| [`_validate_table`](mpilot/db/parser/tables.py) | 병합 셀(`None`), 공백 셀, 짧은 행의 모자란 칸 좌표를 찾아 추출 품질을 점검합니다. |
-| [`_table_to_drafts`](mpilot/db/parser/tables.py) | 표를 캡션 + 마크다운 표 초안으로 바꿉니다. 길이 기준을 넘으면 **행 단위로 나누고, 나눈 조각마다 캡션과 머리글 행을 다시 붙여** 조각 하나만 검색돼도 무슨 표의 어떤 열인지 알 수 있게 했습니다. |
-| [`ocr.py`](mpilot/db/parser/ocr.py) (보류) | 글자가 없는 이미지 쪽을 찾아 비전 모델로 전사하는 경로를 구현했으나, 현재 매뉴얼 4종에 이미지 쪽이 없어 리뷰 합의로 **주석 처리해 보류**했습니다. 다시 켜는 방법을 모듈 문서에 남겼습니다. |
+| [`_extract_tables`](mpilot/db/parser/tables.py) | 쪽별 표 추출, 쪽 넘김 표 연결 |
+| [`_validate_table`](mpilot/db/parser/tables.py) | 문제 셀 좌표 검출 |
+| [`_table_to_drafts`](mpilot/db/parser/tables.py) | 마크다운 표 청크 생성, 길이 초과 시 분할 |
+| [`ocr.py`](mpilot/db/parser/ocr.py) | 이미지 페이지 OCR (보류) |
 
-공유 타입 `RawTable`·`ChunkDraft` 정의와 bbox 좌표 순서 검증도 함께 넣었습니다(#57).
+### 2. 대화·조치 이력 저장 기능 개발
 
-### 2. 대화·조치 기록을 안전하게 저장 — `mpilot/db/rdb/chat.py`
+`mpilot/db/rdb/chat.py`
 
-| 함수 | 하는 일 |
+- 엔지니어 질문·RAG 답변(출처 포함) 저장 및 조회 기능 구현
+- 첫 질문 저장 시 신고 상태 `접수` → `조치 중` 자동 전환
+- 조치 결과(원인·조치·결과) 등록과 `조치 완료` 처리를 단일 트랜잭션으로 구성
+- `SELECT ... FOR UPDATE` 행 잠금으로 완료 건·이관 전 건 저장 차단
+- 조건부 UPDATE 적용으로 동일 건 중복 완료 방지
+- 입력값 길이 검증, 오류 유형별 예외 분리 (`ValidationError`, `NotFoundError`, `InvalidStateError`, `DependencyError`)
+
+| 함수 | 기능 |
 |---|---|
-| [`fetch_chat_turns`](mpilot/db/rdb/chat.py) | 신고 건의 엔지니어 대화를 순서대로 불러옵니다. |
-| [`save_chat_turn`](mpilot/db/rdb/chat.py) | 질문과 RAG 답변(출처 포함)을 한 턴으로 저장하고, 첫 질문이면 신고 상태를 `조치 중`으로 바꿉니다. |
-| [`save_confirmed_resolution`](mpilot/db/rdb/chat.py) | 엔지니어가 쓴 원인·실제 조치·결과를 저장하고 `조치 완료`로 확정합니다. 등록과 완료는 **한 트랜잭션**입니다. |
+| [`fetch_chat_turns`](mpilot/db/rdb/chat.py) | 신고 건별 대화 이력 조회 |
+| [`save_chat_turn`](mpilot/db/rdb/chat.py) | 질문·답변 저장, 상태 전환 |
+| [`save_confirmed_resolution`](mpilot/db/rdb/chat.py) | 조치 결과 저장 및 완료 확정 |
 
-**동시성·상태 보호를 직접 설계했습니다.**
-- 신고 행을 `SELECT ... FOR UPDATE`로 잠근 뒤 상태를 확인해, 이미 완료된 건이나 아직 엔지니어에게 넘어오지 않은 셀프 가이드 건에는 질문·조치를 저장하지 않습니다.
-- 완료 처리는 **"아직 완료되지 않은 건만" 바꾸는 조건부 UPDATE**로, 같은 건을 두 번 완료하는 일을 막습니다.
-- 입력은 앞뒤 공백 제거 후 1~5,000자로 검증하고, 오류는 `ValidationError`·`NotFoundError`·`InvalidStateError`·`DependencyError`로 나눠 화면이 고정 문구로 안내할 수 있게 했습니다.
+### 3. 검색 색인 생성 및 신규 이력 반영 기능 개발
 
-스키마·연결(`connect`, `reset_schema`)은 DB 팀원과 공동으로 만들었고, 커지던 `rdb.py` 한 파일을 **`setup`·`cases`·`chat`·`_common` 패키지로 분리**하는 리팩터링을 맡았습니다(#152). 밖에서는 계속 `rdb.<함수>`로 부를 수 있게 공개 함수를 다시 내보내, 다른 파트 코드는 한 줄도 바꾸지 않았습니다.
+`mpilot/db/vectordb.py`
 
-### 3. 확정된 조치가 다음 답변의 근거로 — `mpilot/db/vectordb.py`
+- 앱 실행 시 Chroma 색인 전체 재생성 (매뉴얼·에러코드 / 확정 이력 컬렉션 분리)
+- 조치 완료 즉시 해당 이력 색인 추가 → 신규 해결 사례를 다음 답변 근거로 바로 활용
+- 문서 ID 규칙 검증 후 기존 색인 삭제 → 원자료 오류 시 기존 색인 보존
+- 미확정 건·셀프 가이드 건 이력 등록 차단
 
-| 함수 | 하는 일 |
+| 함수 | 기능 |
 |---|---|
-| [`rebuild_search_index`](mpilot/db/vectordb.py) | 앱 시작 때마다 Chroma 색인을 원자료에서 새로 만듭니다. `manual` 컬렉션에는 에러코드 표 행과 매뉴얼 본문, `history` 컬렉션에는 확정 이력을 넣습니다. |
-| [`index_history`](mpilot/db/vectordb.py) | 엔지니어가 조치를 확정하면 그 한 건을 바로 이력 색인에 넣습니다(같은 접수번호는 덮어쓰기). 그래서 **방금 해결한 사례가 다음 질문의 근거로 바로 쓰입니다.** |
+| [`rebuild_search_index`](mpilot/db/vectordb.py) | 검색 색인 전체 재생성 |
+| [`index_history`](mpilot/db/vectordb.py) | 확정 조치 이력 1건 색인 반영 |
 
-- **검증을 먼저, 삭제는 나중에:** 문서를 모두 먼저 만들고 ID 규칙(`error:`·`manual:`·`history:` 접두어, 구성 요소에 `:` 금지, 중복 ID 금지)을 검사한 뒤에만 기존 색인을 비웁니다. 원자료가 잘못돼도 **기존 색인을 날리지 않고 멈춥니다.**
-- 셀프 가이드 건이나 조치 기록이 없는 건은 이력으로 넣지 못하게 막아, 확정되지 않은 내용이 근거로 섞이지 않게 했습니다.
-- 이후 팀이 읽기 쉽도록 수업 문법 수준으로 단순화하고 줄마다 한글 주석을 달았습니다(#133).
+### 4. RDB 모듈 구조 개선
 
-### 4. 팀 개발 규칙 — `CLAUDE.md`, `.gitignore`
+`mpilot/db/rdb/`
 
-프로젝트 첫날 AI 코딩 도구를 쓸 때 지킬 **공식 AI 규칙**(`AI_RULES.md`)과 `CLAUDE.md` 첫 버전을 만들고, 기획서(intent·spec) 최신본에 맞춰 심각도 표기 등을 정리했습니다(#25). `AI_RULES.md`는 이후 정리되어 지금은 없고, `CLAUDE.md`는 팀이 이어서 고쳐 쓰는 규칙 문서가 되었습니다. 비밀 정보·벡터DB·캐시가 올라가지 않도록 `.gitignore`도 처음에 넣었습니다.
+- 단일 파일 `rdb.py`를 `setup`·`cases`·`chat`·`_common` 패키지로 분리
+- 공개 함수 재노출로 기존 호출 방식(`rdb.<함수>`) 유지 → 타 파트 코드 수정 없음
+- 기존 RDB 테스트 7건 신규 구조 대응
+- 스키마 생성·DB 연결 기능 공동 개발 (DB 파트 3인)
 
----
+### 5. 협업 환경 구성
+
+- 프로젝트 초기 팀 AI 코딩 규칙 문서(`AI_RULES.md`, `CLAUDE.md`) 작성
+- 기획서(intent·spec) 기준 심각도 표기 정비
+- 비밀 정보·벡터DB·캐시 업로드 방지용 `.gitignore` 구성
+- 현재 `AI_RULES.md`는 정리되어 삭제, `CLAUDE.md`는 팀 공용 규칙 문서로 유지
 
 ## 테스트
 
-담당 기능마다 pytest 테스트를 함께 작성했습니다. MySQL이 필요한 테스트는 로컬 Docker와 CI에서 돕니다.
-
-| 테스트 파일 | 확인하는 것 |
+| 파일 | 검증 항목 |
 |---|---|
-| `tests/test_parser_tables_ocr.py` | 표 추출, 쪽 넘김 표 캡션 이어받기, 빈·병합 셀 검출, 큰 표 분할 시 머리글 복제 |
-| `tests/test_parser_types.py` | 공유 타입과 bbox 좌표 순서 검증 |
-| `tests/test_rdb_chat_resolution.py` | 대화 저장·조회, 조치 확정, 완료 건·이관 전 건 거부 |
+| `tests/test_parser_tables_ocr.py` | 표 추출, 쪽 넘김 표 연결, 문제 셀 검출, 긴 표 분할 |
+| `tests/test_parser_types.py` | 공유 타입, bbox 좌표 순서 검증 |
+| `tests/test_rdb_chat_resolution.py` | 대화 저장·조회, 조치 확정, 완료 건·이관 전 건 차단 |
 | `tests/test_rdb_schema.py` | 테이블 생성·초기화 |
-| `tests/test_vectordb_indexing.py` | 색인 재생성, 이력 반영·덮어쓰기, 문서 ID 검증 실패 시 기존 색인 보존, 저장소 오류 변환 (17개) |
-| `tests/conftest.py` | 실제 MySQL 테스트 DB에 빈 테이블을 만들어 주는 공용 fixture. CI에서 DB에 못 붙으면 건너뛰지 않고 실패시켜, 초록불로 문제를 가리지 않게 했습니다. |
-
-rdb 패키지 분리(#152) 때는 팀원이 작성한 것까지 `tests/test_rdb_*.py` 7개를 새 구조에 맞게 함께 고쳐, 분리 전과 같은 동작을 검증하도록 했습니다.
+| `tests/test_vectordb_indexing.py` | 색인 재생성, 이력 반영·덮어쓰기, 검증 실패 시 기존 색인 보존 (17건) |
+| `tests/conftest.py` | MySQL 테스트 DB 공용 fixture, CI 연결 실패 시 테스트 실패 처리 |
 
 ```bash
 pip install -r requirements.txt
 pytest tests/test_parser_tables_ocr.py tests/test_rdb_chat_resolution.py tests/test_vectordb_indexing.py
 ```
 
----
-
-## 기여한 PR
+## 기여 PR
 
 | PR | 내용 |
 |---|---|
-| [#25](https://github.com/movebrain/m-pilot/pull/25) | 공식 AI 규칙 `AI_RULES.md`·`CLAUDE.md`, `.gitignore` |
-| [#56](https://github.com/movebrain/m-pilot/pull/56) | 검색 색인 재생성과 확정 이력 반영 |
-| [#57](https://github.com/movebrain/m-pilot/pull/57) | 표·텍스트 경로 공유 타입, bbox 검증, 쪽 번호 기준 정리 |
-| [#98](https://github.com/movebrain/m-pilot/pull/98) | 스키마·연결과 대화·조치 저장 |
-| [#103](https://github.com/movebrain/m-pilot/pull/103) | 표 추출·검증·청킹, 이미지 페이지 OCR(보류) |
-| [#133](https://github.com/movebrain/m-pilot/pull/133) | 색인 쓰기 코드 단순화 |
-| [#152](https://github.com/movebrain/m-pilot/pull/152) | rdb 모듈을 기능별 패키지로 분리 |
+| [#25](https://github.com/movebrain/m-pilot/pull/25) | 팀 AI 코딩 규칙 문서, `.gitignore` 추가 |
+| [#56](https://github.com/movebrain/m-pilot/pull/56) | 검색 색인 재생성 및 확정 이력 반영 기능 개발 |
+| [#57](https://github.com/movebrain/m-pilot/pull/57) | 표·텍스트 공유 타입 정의, bbox 검증, 쪽 번호 기준 정리 |
+| [#98](https://github.com/movebrain/m-pilot/pull/98) | DB 스키마·연결, 대화·조치 저장 기능 개발 |
+| [#103](https://github.com/movebrain/m-pilot/pull/103) | 표 추출·검증·청킹 기능 개발, 이미지 OCR(보류) |
+| [#133](https://github.com/movebrain/m-pilot/pull/133) | 색인 저장 코드 단순화 |
+| [#152](https://github.com/movebrain/m-pilot/pull/152) | RDB 모듈 기능별 패키지 분리 |
 
----
+## 회고
 
-## 배운 점
+- 출처 정확도 확보: 인쇄 쪽 번호 사용, 표 조각별 머리글 재부착으로 답변 출처 신뢰도 개선
+- 상태 전환 안정성: 행 잠금·조건부 UPDATE로 중복 처리 방지 로직을 DB 단에서 처리
+- 데이터 보호: 색인 재생성 시 검증 선행, 실패 시 기존 데이터 유지
+- 코드 가독성: 줄 단위 한글 주석, 단순 문법 위주 리팩터링으로 팀 리뷰 효율 개선
 
-- **출처가 맞아야 RAG를 믿을 수 있다.** PDF 순번 대신 인쇄 쪽 번호를 쓰고, 표 조각마다 머리글을 다시 붙인 것은 모델 성능보다 "엔지니어가 출처를 열었을 때 그 내용이 있는가"를 먼저 생각한 결과입니다.
-- **저장은 실패보다 이중 처리가 더 무섭다.** 행 잠금과 조건부 UPDATE로 상태 전이를 DB에서 보장하면 화면 쪽 코드가 단순해진다는 것을 배웠습니다.
-- **지우기 전에 검증한다.** 색인 재생성처럼 되돌리기 어려운 작업은 새 데이터를 다 만들고 검사한 뒤에만 기존 것을 지웁니다.
-- **팀 코드는 읽히는 게 먼저다.** 리뷰하는 팀원이 한 줄씩 이해할 수 있도록 줄끝 주석과 단순한 문법으로 다시 썼고, 파일 분리 때도 공개 인터페이스를 유지해 다른 파트에 영향을 주지 않았습니다.
+## 팀 구성 및 전체 문서
 
----
-
-## 프로젝트 전체 소개와 실행
-
-서비스 전체 기능, 경로 결정 규칙, 실행 방법은 팀 README를 그대로 옮겨 둔 [docs/TEAM_README.md](docs/TEAM_README.md)와 [docs/RUN.md](docs/RUN.md)에 있습니다.
+- 서비스 전체 소개: [docs/TEAM_README.md](docs/TEAM_README.md)
+- 실행 방법: [docs/RUN.md](docs/RUN.md)
 
 | 이름 | 파트 | GitHub |
 |:---:|:---:|:---:|
 | 노동균 | UI·총괄 | [@rohdonggyun-lab](https://github.com/rohdonggyun-lab) |
 | 김성일 | DB | [@tjddlf112015-jpg](https://github.com/tjddlf112015-jpg) |
 | 손재호 | DB | [@thswogh](https://github.com/thswogh) |
-| **이재서** | **DB** | [@8113jsl-ui](https://github.com/8113jsl-ui) |
+| 이재서 | DB | [@8113jsl-ui](https://github.com/8113jsl-ui) |
 | 도예진 | RAG | [@yejjini](https://github.com/yejjini) |
 | 정혜윤 | RAG | [@hyey00n](https://github.com/hyey00n) |
 | 한시온 | RAG | [@zionhann](https://github.com/zionhann) |
