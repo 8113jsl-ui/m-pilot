@@ -1,0 +1,70 @@
+@startuml
+' M-Pilot service flow (Customer · M-Pilot · Engineer swimlanes)
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 16
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.4
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 11
+skinparam ActivityBorderColor #94A3B8
+skinparam ActivityBorderThickness 1.2
+skinparam ActivityDiamondBackgroundColor #FFF7E0
+skinparam ActivityDiamondBorderColor #E0A100
+skinparam ActivityStartColor #334155
+skinparam ActivityEndColor #334155
+skinparam NoteBackgroundColor #FFFDF5
+skinparam NoteBorderColor #E0A100
+skinparam SwimlaneBorderColor #CBD5E1
+skinparam SwimlaneBorderThickness 1
+skinparam SwimlaneTitleFontSize 15
+skinparam SwimlaneTitleFontStyle bold
+skinparam SwimlaneTitleFontColor #1E293B
+
+|#F4F8FF|Customer|
+start
+:Report a failure
+pick equipment + error code; <<#DCEAFE>>
+
+|#FFFCF2|M-Pilot|
+if (Routing
+severity + action type) then (customer-fixable)
+  :Build self-service guide
+  search + verify manual evidence; <<#FFF1C9>>
+  if (Enough evidence?) then (yes)
+    |Customer|
+    :Read the guide
+    steps + manual citations; <<#DCEAFE>>
+    if (Fixed?) then (Resolved)
+      :Completed; <<#D9F5E4>>
+      stop
+    else (Request support)
+    endif
+  else (no)
+  endif
+else (high severity / other)
+endif
+
+|#FAF6FF|Engineer|
+:Case received; <<#EBDDFE>>
+repeat
+  :Diagnosis chat
+  answers from manuals + history; <<#EBDDFE>>
+repeat while (More questions?) is (yes) not (no)
+:Record the fix
+cause, action, result; <<#EBDDFE>>
+
+|M-Pilot|
+:Index confirmed fix; <<#FFF1C9>>
+note right
+  Evidence for
+  the next answer
+end note
+
+|Customer|
+:Completed
+view the fix; <<#D9F5E4>>
+stop
+@enduml

@@ -1,0 +1,70 @@
+@startuml
+' M-Pilot 서비스 흐름 (고객 · M-Pilot · 엔지니어 스윔레인)
+skinparam defaultFontName "Malgun Gothic"
+skinparam defaultFontSize 13
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 16
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.4
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 11
+skinparam ActivityBorderColor #94A3B8
+skinparam ActivityBorderThickness 1.2
+skinparam ActivityDiamondBackgroundColor #FFF7E0
+skinparam ActivityDiamondBorderColor #E0A100
+skinparam ActivityStartColor #334155
+skinparam ActivityEndColor #334155
+skinparam NoteBackgroundColor #FFFDF5
+skinparam NoteBorderColor #E0A100
+skinparam SwimlaneBorderColor #CBD5E1
+skinparam SwimlaneBorderThickness 1
+skinparam SwimlaneTitleFontSize 15
+skinparam SwimlaneTitleFontStyle bold
+skinparam SwimlaneTitleFontColor #1E293B
+
+|#F4F8FF|고객|
+start
+:고객 신고
+설비·에러코드 선택; <<#DCEAFE>>
+
+|#FFFCF2|M-Pilot|
+if (경로 분기
+심각도·조치 구분) then (고객사 조치)
+  :셀프 가이드 생성
+  매뉴얼 근거 검색·검증; <<#FFF1C9>>
+  if (근거 충분?) then (예)
+    |고객|
+    :셀프 가이드 확인
+    단계별 안내·매뉴얼 출처; <<#DCEAFE>>
+    if (안내로 해결?) then (해결완료)
+      :조치 완료; <<#D9F5E4>>
+      stop
+    else (기술지원접수)
+    endif
+  else (아니오)
+  endif
+else (심각도 상·그 외)
+endif
+
+|#FAF6FF|엔지니어|
+:엔지니어 접수; <<#EBDDFE>>
+repeat
+  :장애 분석 대화
+  매뉴얼·이력 근거 답변; <<#EBDDFE>>
+repeat while (추가 질문?) is (예) not (아니오)
+:조치 결과 등록
+원인·조치·결과; <<#EBDDFE>>
+
+|M-Pilot|
+:확정 이력 색인 반영; <<#FFF1C9>>
+note right
+  다음 질문의
+  답변 근거로 활용
+end note
+
+|고객|
+:조치 완료
+조치 결과 확인; <<#D9F5E4>>
+stop
+@enduml

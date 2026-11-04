@@ -58,18 +58,14 @@
 
 ### Service Flow
 
-```mermaid
-flowchart LR
-    A["Customer report<br/>equipment + error code"] --> B{"Routing<br/>severity + action type"}
-    B -->|"customer-fixable"| G["Self-service guide<br/>manual-grounded"]
-    B -->|"high severity / other"| S["Engineer queue"]
-    G -->|"Resolved"| E["Completed"]
-    G -->|"Request support /<br/>not enough evidence"| S
-    S --> C["Diagnosis chat<br/>manual + history evidence"]
-    C --> K["Fix recorded"]
-    K --> E
-    K -.->|"indexed as evidence"| C
-```
+<p align="center">
+  <img src="images/service_flow_en.png" alt="M-Pilot service flow: PlantUML swimlane diagram with Customer, M-Pilot, and Engineer lanes" width="600">
+</p>
+
+- After a report, the error-code table (severity + action type) picks the route automatically.
+- If the self-service guide lacks evidence or the customer taps "Request support", the case moves to an engineer.
+- Every fix an engineer confirms is indexed and becomes evidence for the next question.
+- Source: [docs/diagrams/service_flow_en.puml](docs/diagrams/service_flow_en.puml) (PlantUML activity diagram)
 
 ### Project Info
 
